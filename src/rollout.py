@@ -165,20 +165,3 @@ def make_vec_rollout_fn(model_step_fn, model_params):
     func = jax.jit(jax.vmap(rollout_fn, in_axes=(None, 0)))
 
     return func
-# %%
-params = dict(
-    max_speed=8.0,
-    max_torque=2.0,
-    dt=0.05,
-    g=9.81,
-    m=1.0,
-    l=1.0,
-)
-
-params["high"] = jnp.array([1.0, 1.0, params["max_speed"]])
-f = make_vec_rollout_fn(lax_wrapper_step, params)
-# %%
-obs = jnp.zeros(3)
-a,b=f(obs, jnp.ones((4, 10, 1)))
-# %%
-a.shape
