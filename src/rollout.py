@@ -112,6 +112,17 @@ def step(
     return newobs, -cost
 
 
+
+# def step(
+#     obs: jnp.ndarray,
+#     act: jnp.ndarray,
+#     params: dict) -> Tuple[jnp.ndarray, float]:
+    
+
+#     return obs+act, act ** 2
+
+
+
 def lax_wrapper_step(carry, input, params):
     """ Wrap a step in the nominal dynamics model to fit the JAX lax scan.
 
@@ -140,7 +151,7 @@ def lax_wrapper_step(carry, input, params):
     state = carry[0]
     next_state, reward = step(state, input, params)
 
-    new_carry = (state, )
+    new_carry = (next_state, )
     output = (next_state, reward)
 
     return new_carry, output
@@ -149,6 +160,7 @@ def lax_wrapper_step(carry, input, params):
 def make_vec_rollout_fn(model_step_fn, model_params):
 
     step_fn = partial(model_step_fn, params=model_params)
+
     def rollout_fn(obs, act_sequence):
         """
         Arguments:
@@ -165,3 +177,14 @@ def make_vec_rollout_fn(model_step_fn, model_params):
     func = jax.jit(jax.vmap(rollout_fn, in_axes=(None, 0)))
 
     return func
+
+
+
+# #%%
+# # %%
+# f = make_vec_rollout_fn(lax_wrapper_step, {})
+# # %%
+# obs = jnp.zeros(1)
+# act = jnp.ones((2, 3, 1)) #K, T, act_dim
+# f(obs,act)
+# # %%
