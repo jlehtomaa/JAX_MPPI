@@ -12,7 +12,7 @@ environment:
 
 controller:
   seed: 0
-  lambda: 1
-  T: 20
-  K: 5000
-  sigma: 0.9
+  temperature: 1
+  n_timesteps: 20
+  n_samples: 5000
+  noise_sigma: 0.9

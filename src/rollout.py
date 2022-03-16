@@ -1,17 +1,19 @@
-#%%
 """
+This module defines the nominal model that the controller has
+access to. We write the transition dynamics of the system in terms of
+the current state and a single control input. We then formulate the
+rollout of N steps by using the jax.lax.scan machinery, which is an
+efficient way to get rid of for-loops. Finally, we vectorize the rollout
+over K samples of different action trajectories to run the MPPI algorithm.
 
-Defines the nominal model used by the controller algorith in terms
-of a single step. A single rollout is built by applying the jax.lax.scan
-machinery to this step function.
 
-As an example, we use pendulum environment from OpenAI gym:
+As a simple test environment, we use Pendulum-v0 from OpenAI gym:
 https://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
 
 The MPPI method, and the scan procedure, easily extend to more complex models,
 including those that with time-varying dynamics.
 
-The environment details are:
+The environment details are (from OpenAI gym):
 
 Action Space:
 The action is a `ndarray` with shape `(1,)` representing the torque
@@ -37,16 +39,20 @@ angular velocity in *[-1,1]*.
 
 """
 
+
 import jax
 import jax.numpy as jnp
 from functools import partial
 from typing import Iterable, Tuple
-# %%
+
+
+
 def angle2coords(angle: float) -> jnp.ndarray:
     """ Transforms an angle on a 2D plance to (x, y) coordinates.
     
     """
     return jnp.array([jnp.cos(angle), jnp.sin(angle)])
+
 
 def coords2angle(coords: Iterable) -> jnp.ndarray:
     """ Transforms (x, y) coordinates into the corresponding vector angle.
@@ -82,7 +88,7 @@ def step(
     ---------
     obs : jnp.ndarray of size (3,) The state observation
     act : jnp.ndarray of size (1,) The control input
-    params : dict Environment parameters
+    params : dict of environment parameters
 
     Output:
     -------
@@ -112,33 +118,21 @@ def step(
     return newobs, -cost
 
 
-
-# def step(
-#     obs: jnp.ndarray,
-#     act: jnp.ndarray,
-#     params: dict) -> Tuple[jnp.ndarray, float]:
-    
-
-#     return obs+act, act ** 2
-
-
-
 def lax_wrapper_step(carry, input, params):
-    """ Wrap a step in the nominal dynamics model to fit the JAX lax scan.
+    """ Wrapper of a step function.
+
+    This step is not strictly necessary, but makes using the jax.lax.scan
+    easier in situations where the dynamics are, say, varying in time,
+    or have random components that require the JAX PRNGKey. 
 
     See https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scan.html
     for more details.
 
     Arguments:
     ---------
-    carry : tuple The item that lax carries from one step to the next.
-            Here, it only contains the current state. More generally, it could
-            for instance also have a time counter, or if the nominal model
-            also has uncertainty, also a PRNGKey. Intuitively, carry is what
-            gets accumulated over the jax.lax.scan call.
-
+    carry : tuple The item that lax carries (and accumulates) from one step
+            to the next. Here, it only contains the current state.
     input : array The current control input.
-
     params : dict Parameters for the nominal environment model.
 
     Output:
@@ -146,7 +140,7 @@ def lax_wrapper_step(carry, input, params):
     new_carry : tuple Updated carry value for the next iteration. Carry must
                 have the same shape and dtype across all iterations.
 
-    output : The model outputs we want to track over the scan loop.
+    output : The outputs we want to track at each step over the scan loop.
     """
     state = carry[0]
     next_state, reward = step(state, input, params)
@@ -158,6 +152,10 @@ def lax_wrapper_step(carry, input, params):
 
 
 def make_vec_rollout_fn(model_step_fn, model_params):
+    """ Build a vectorized call to the rollout function.
+    
+    
+    """
 
     step_fn = partial(model_step_fn, params=model_params)
 
@@ -165,8 +163,8 @@ def make_vec_rollout_fn(model_step_fn, model_params):
         """
         Arguments:
         ---------
-        init_obs : (obs_dim) - shaped array, starting state of sequence.
-        act_sequence : (n_samples, act_dim) - shaped array.
+        obs : (obs_dim) - shaped array, starting state of sequence.
+        act_sequence : (n_steps, act_dim) - shaped array.
 
         """
         carry = (obs, )
@@ -174,17 +172,9 @@ def make_vec_rollout_fn(model_step_fn, model_params):
 
         return obs_and_rews
 
+    # Vectorize the rollout_fn over the first dim of the action sequence.
+    # That is, the act_sequence for func should have the following shape:
+    # (n_samples, n_steps, act_dim).
     func = jax.jit(jax.vmap(rollout_fn, in_axes=(None, 0)))
 
     return func
-
-
-
-# #%%
-# # %%
-# f = make_vec_rollout_fn(lax_wrapper_step, {})
-# # %%
-# obs = jnp.zeros(1)
-# act = jnp.ones((2, 3, 1)) #K, T, act_dim
-# f(obs,act)
-# # %%

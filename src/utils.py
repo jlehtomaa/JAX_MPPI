@@ -1,7 +1,7 @@
 import yaml
 
 def read_config(cfg_file: str) -> dict:
-    """ Translates a yaml file to a dict.
+    """ Translates a yaml config file to a dict.
 
     Arguments:
     ----------
@@ -14,5 +14,3 @@ def read_config(cfg_file: str) -> dict:
         except yaml.YAMLError as exc:
             print(exc)
             return None
-
-
