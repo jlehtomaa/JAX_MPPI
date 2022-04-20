@@ -153,8 +153,6 @@ def lax_wrapper_step(carry, input, params):
 
 def make_vec_rollout_fn(model_step_fn, model_params):
     """ Build a vectorized call to the rollout function.
-    
-    
     """
 
     step_fn = partial(model_step_fn, params=model_params)

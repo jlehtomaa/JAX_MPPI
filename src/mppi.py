@@ -70,7 +70,9 @@ class MPPI:
         """ Determine the next optimal action.
 
         Uses https://github.com/Shunichi09/PythonLinearNonlinearControl ...
-        controllers/mppi_williams.py
+        controllers/mppi.py, based on
+        Nagabandi et al. (2019). Deep Dynamics Models for Learning
+        Dexterous Manipulation. arXiv:1909.11652.
 
         Arguments:
         ----------
@@ -86,28 +88,19 @@ class MPPI:
         acts = self.nominal_traj + noise
         acts = np.clip(acts, self.act_min, self.act_max)
 
-        _, rews = self.rollout_fn(obs, acts) # (K, T, 1)
+        _, rewards = self.rollout_fn(obs, acts) # (K, T, 1)
 
         # Stage costs from the environment.
-        costs = -rews.sum(axis=1).squeeze()  # (K,)
+        rewards = rewards.sum(axis=1).squeeze()  # (K,)
+        exp_rewards = np.exp(self.temperature * (rewards - np.max(rewards)))
+        denom = np.sum(exp_rewards) + 1e-10
 
-        # Additional control cost as in the MPPI algorithm.
-        costs += np.sum(
-            self.temperature * self.nominal_traj * noise / self.noise_sigma,
-            axis=(1,2))
-
-        beta = np.min(costs)
-        nonzero_costs = self._nonzero_cost_fn(self.temperature, costs, beta)
-
-        eta = np.sum(nonzero_costs)
-        weights = 1. / eta * nonzero_costs # (K,)
-
-        act = self.nominal_traj\
-            + np.sum(weights[:, np.newaxis, np.newaxis] * noise, axis=0)
+        weighted_inputs = exp_rewards[:, np.newaxis, np.newaxis] * acts
+        sol = np.sum(weighted_inputs, axis=0) / denom
 
         # Return the first element as an immediate input, and roll the next
         # actions forward by one position.
-        self.nominal_traj[:-1] = act[1:]
-        self.nominal_traj[-1] = act[-1]
+        self.nominal_traj[:-1] = sol[1:]
+        self.nominal_traj[-1] = sol[-1]
 
-        return act[0]
+        return sol[0]
