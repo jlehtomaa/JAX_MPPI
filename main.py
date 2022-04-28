@@ -1,4 +1,5 @@
 import gym
+from gym.wrappers import Monitor
 from src.utils import read_config
 from src.mppi import MPPI
 
@@ -8,6 +9,7 @@ config = read_config(CFG_PATH)
 
 mppi = MPPI(config)
 env = gym.make("Pendulum-v0")
+#env = Monitor(gym.make("Pendulum-v0"), './video', force=True)
 
 mppi.reset()
 obs, done, rew = env.reset(), False, 0.

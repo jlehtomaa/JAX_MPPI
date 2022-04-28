@@ -46,7 +46,6 @@ from functools import partial
 from typing import Iterable, Tuple
 
 
-
 def angle2coords(angle: float) -> jnp.ndarray:
     """ Transforms an angle on a 2D plance to (x, y) coordinates.
     
